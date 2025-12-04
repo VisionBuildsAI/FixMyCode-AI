@@ -10,37 +10,37 @@ const DiffViewer: React.FC<DiffViewerProps> = ({ original, modified }) => {
   const diffLines = useMemo(() => generateDiff(original, modified), [original, modified]);
 
   return (
-    <div className="w-full h-full overflow-auto bg-[#0d1117] font-mono text-sm">
+    <div className="w-full h-full overflow-auto bg-[#050505] font-mono text-xs md:text-sm">
       <table className="w-full border-collapse">
         <tbody>
           {diffLines.map((line, idx) => {
             let bgClass = '';
-            let textClass = 'text-gray-300';
-            let sign = ' ';
+            let textClass = 'text-slate-400';
+            let marker = ' ';
 
             if (line.type === 'added') {
-              bgClass = 'bg-green-900/30';
-              textClass = 'text-green-300';
-              sign = '+';
+              bgClass = 'bg-neon-green/10';
+              textClass = 'text-neon-green';
+              marker = '+';
             } else if (line.type === 'removed') {
-              bgClass = 'bg-red-900/30';
-              textClass = 'text-red-300';
-              sign = '-';
+              bgClass = 'bg-neon-red/10';
+              textClass = 'text-neon-red line-through opacity-70';
+              marker = '-';
             }
 
             return (
-              <tr key={idx} className={`${bgClass} hover:bg-opacity-40`}>
+              <tr key={idx} className={`${bgClass} transition-colors hover:bg-white/5`}>
                 {/* Line Numbers */}
-                <td className="w-10 px-2 py-0.5 text-right text-gray-600 border-r border-gray-800 select-none bg-[#0d1117]">
+                <td className="w-10 px-2 py-1 text-right text-slate-700 border-r border-white/5 select-none opacity-50">
                   {line.originalLineNumber || ''}
                 </td>
-                <td className="w-10 px-2 py-0.5 text-right text-gray-600 border-r border-gray-800 select-none bg-[#0d1117]">
+                <td className="w-10 px-2 py-1 text-right text-slate-700 border-r border-white/5 select-none opacity-50">
                   {line.newLineNumber || ''}
                 </td>
                 
                 {/* Content */}
-                <td className={`px-4 py-0.5 whitespace-pre-wrap break-all ${textClass}`}>
-                  <span className="select-none inline-block w-4 opacity-50">{sign}</span>
+                <td className={`px-4 py-1 whitespace-pre-wrap break-all ${textClass}`}>
+                  <span className="select-none inline-block w-4 opacity-50 font-bold">{marker}</span>
                   {line.content}
                 </td>
               </tr>

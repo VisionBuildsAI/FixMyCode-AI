@@ -1,23 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
-  Play, 
-  Copy, 
-  CheckCircle, 
-  AlertTriangle, 
-  Shield, 
-  ShieldAlert,
-  ShieldCheck,
-  Code,
-  Clock, 
-  Maximize2,
-  RefreshCw,
-  Eye,
-  EyeOff,
-  Unlock,
-  Terminal,
-  Skull,
-  FileCheck,
-  CheckSquare
+  Play, Copy, CheckCircle, AlertTriangle, Shield, ShieldAlert, ShieldCheck,
+  Code as CodeIcon, Clock, Maximize2, RefreshCw, Eye, EyeOff, Unlock,
+  Terminal, Skull, FileCheck, CheckSquare, Activity, AlertOctagon, GitPullRequest,
+  Zap, Command, ChevronRight, BarChart, Flame
 } from 'lucide-react';
 import CodeEditor from './components/CodeEditor';
 import ResultTabs from './components/ResultTabs';
@@ -39,7 +25,17 @@ const App: React.FC = () => {
   // Derived state
   const hasResult = !!result;
   const isHackMode = mode === AnalysisMode.HACK_DEFEND;
-  
+  const isDebtMode = mode === AnalysisMode.TECH_DEBT;
+
+  // Effects
+  useEffect(() => {
+    // Reset result when mode changes to encourage re-analysis
+    if (result) {
+        // Optional: clear result if switching modes drastically, or keep it.
+        // Keeping it for now but resetting tab order
+    }
+  }, [mode]);
+
   const handleAnalyze = async () => {
     if (!inputCode.trim()) return;
     
@@ -55,6 +51,8 @@ const App: React.FC = () => {
       // Default tab selection
       if (mode === AnalysisMode.HACK_DEFEND) {
         setActiveTab('hack_simulation');
+      } else if (mode === AnalysisMode.TECH_DEBT) {
+        setActiveTab('debt_scores');
       } else if (data.bugs.length > 0) {
         setActiveTab('bugs');
       } else {
@@ -71,80 +69,143 @@ const App: React.FC = () => {
     navigator.clipboard.writeText(text);
   };
 
+  const getHighlights = () => {
+    if (!result) return [];
+    if (isHackMode && result.hackAnalysis) return result.hackAnalysis.vulnerabilities.map(v => v.line);
+    if (isDebtMode && result.techDebtAnalysis) return result.techDebtAnalysis.issues.map(i => i.line);
+    return result.bugs.map(b => b.line);
+  };
+
+  // --- Render Helpers ---
+
+  const renderEmptyState = () => (
+    <div className="flex flex-col items-center justify-center h-full text-slate-500 space-y-8 p-12 animate-in fade-in duration-700">
+      <div className={`
+        relative w-24 h-24 rounded-full flex items-center justify-center 
+        border border-white/10 bg-white/5 backdrop-blur-md shadow-2xl
+        ${isHackMode ? 'shadow-neon-red/20' : isDebtMode ? 'shadow-neon-purple/20' : 'shadow-neon-cyan/20'}
+      `}>
+         {isHackMode ? <Skull className="text-neon-red" size={40} /> : 
+          isDebtMode ? <Activity className="text-neon-purple" size={40} /> : 
+          <CodeIcon className="text-neon-cyan" size={40} />}
+         
+         {/* Animated ring */}
+         <div className={`absolute inset-0 rounded-full border border-white/5 animate-ping opacity-20 ${isHackMode ? 'bg-neon-red' : 'bg-neon-cyan'}`}></div>
+      </div>
+      
+      <div className="text-center space-y-3 max-w-lg">
+        <h3 className="text-4xl font-bold tracking-tighter text-transparent bg-clip-text bg-gradient-to-b from-white to-slate-500">
+          Paste your crime scene.
+        </h3>
+        <p className="text-slate-400 font-light text-lg">
+          {isHackMode 
+            ? "We'll find the vulnerabilities before they do."
+            : "We'll judge your code. Brutally."
+          }
+        </p>
+      </div>
+
+      <div className="flex gap-3 text-xs font-mono text-slate-600 uppercase tracking-widest opacity-60">
+        <span className="flex items-center"><Command size={12} className="mr-1"/> Analyze</span>
+        <span className="flex items-center"><ChevronRight size={12} className="mr-1"/> Fix</span>
+        <span className="flex items-center"><Shield size={12} className="mr-1"/> Secure</span>
+      </div>
+    </div>
+  );
+
+  const renderAnalyzing = () => (
+    <div className="flex flex-col items-center justify-center h-full space-y-6">
+      <div className="relative">
+        <div className={`w-16 h-16 border-4 border-t-transparent rounded-full animate-spin ${isHackMode ? 'border-neon-red' : 'border-neon-cyan'}`}></div>
+        <div className={`absolute inset-0 flex items-center justify-center ${isHackMode ? 'text-neon-red' : 'text-neon-cyan'}`}>
+          <Zap size={24} className="animate-pulse" />
+        </div>
+      </div>
+      <div className="text-center">
+        <p className="text-lg font-mono text-slate-200 animate-pulse">
+          {isHackMode ? "SIMULATING ATTACK VECTORS..." : "ANALYZING LOGIC..."}
+        </p>
+        <p className="text-sm text-slate-500 mt-2">Running heuristics engine v1.2</p>
+      </div>
+    </div>
+  );
+
+  const renderTechDebtScore = (scores: any) => {
+    const getScoreColor = (s: number) => s >= 90 ? 'text-neon-cyan' : s >= 70 ? 'text-neon-green' : s >= 50 ? 'text-yellow-400' : 'text-neon-red';
+    const getRingColor = (s: number) => s >= 90 ? 'text-cyan-500' : s >= 70 ? 'text-emerald-500' : s >= 50 ? 'text-yellow-500' : 'text-rose-600';
+
+    return (
+      <div className="p-10 h-full overflow-y-auto">
+        <div className="flex flex-col items-center mb-12">
+          {/* Circular Progress */}
+          <div className="relative w-48 h-48 flex items-center justify-center mb-6">
+            <svg className="w-full h-full transform -rotate-90">
+              <circle cx="96" cy="96" r="80" className="text-white/5" strokeWidth="12" fill="none" stroke="currentColor" />
+              <circle 
+                 cx="96" cy="96" r="80" 
+                 className={`${getRingColor(scores.overall)} drop-shadow-[0_0_10px_rgba(0,0,0,0.5)] transition-all duration-1000 ease-out`}
+                 strokeWidth="12" 
+                 fill="none" 
+                 stroke="currentColor" 
+                 strokeDasharray={502} 
+                 strokeDashoffset={502 - (502 * scores.overall) / 100}
+                 strokeLinecap="round"
+              />
+            </svg>
+            <div className="absolute flex flex-col items-center">
+               <span className={`text-6xl font-bold tracking-tighter ${getScoreColor(scores.overall)} drop-shadow-md`}>{scores.overall}</span>
+               <span className="text-[10px] text-slate-500 uppercase tracking-[0.2em] mt-2 font-semibold">Debt Score</span>
+            </div>
+          </div>
+          
+          <div className={`px-4 py-1 rounded-full border border-white/10 bg-white/5 text-lg font-medium tracking-tight ${getScoreColor(scores.overall)}`}>
+            {scores.overall >= 90 ? 'Clean Architecture' : scores.overall >= 70 ? 'Acceptable Engineering' : scores.overall >= 50 ? 'Risky Codebase' : 'Technical Bankruptcy'}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 gap-6 max-w-xl mx-auto">
+          {Object.entries(scores).filter(([key]) => key !== 'overall').map(([key, val]) => (
+            <div key={key} className="group">
+              <div className="flex justify-between mb-2 items-end">
+                <span className="text-slate-500 uppercase text-[10px] font-bold tracking-widest group-hover:text-slate-300 transition-colors">{key}</span>
+                <span className={`font-mono text-sm font-bold ${getScoreColor(val as number)}`}>{val as number}</span>
+              </div>
+              <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
+                <div 
+                   className={`h-full ${getRingColor(val as number).replace('text-', 'bg-')} shadow-[0_0_10px_currentColor] rounded-full transition-all duration-1000`} 
+                   style={{ width: `${val}%` }}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
   const renderContent = () => {
-    if (isAnalyzing) {
-      return (
-        <div className="flex flex-col items-center justify-center h-full text-gray-400 space-y-4">
-          <RefreshCw className="w-12 h-12 animate-spin text-blue-500" />
-          <p className="text-lg font-mono animate-pulse">
-            {isHackMode ? "Simulating Cyber Attacks..." : "Analyzing logic..."}
-          </p>
-          <div className="text-sm opacity-60">
-             {isHackMode ? "Identifying exploits, testing payloads, and generating defense strategies." : "Scanning for bugs, security risks, and optimization opportunities."}
-          </div>
-        </div>
-      );
-    }
+    if (isAnalyzing) return renderAnalyzing();
+    if (error) return (
+      <div className="flex flex-col items-center justify-center h-full text-neon-red space-y-4 p-12 text-center animate-in zoom-in-95">
+        <AlertTriangle className="w-16 h-16 drop-shadow-[0_0_15px_rgba(244,63,94,0.5)]" />
+        <h3 className="text-2xl font-bold">Analysis Failed</h3>
+        <p className="text-slate-400 max-w-xs">{error}</p>
+      </div>
+    );
+    if (!result) return renderEmptyState();
 
-    if (error) {
-      return (
-        <div className="flex flex-col items-center justify-center h-full text-red-400 space-y-4 p-8 text-center">
-          <AlertTriangle className="w-16 h-16" />
-          <h3 className="text-xl font-bold">Analysis Failed</h3>
-          <p>{error}</p>
-        </div>
-      );
-    }
-
-    if (!result) {
-      return (
-        <div className="flex flex-col items-center justify-center h-full text-gray-500 space-y-6 p-8">
-          <div className={`w-20 h-20 rounded-full flex items-center justify-center mb-4 border ${isHackMode ? 'bg-red-900/20 border-red-500/50' : 'bg-gray-800 border-gray-700'}`}>
-             {isHackMode ? <Skull className="text-red-500" size={40} /> : <CodeIcon />}
-          </div>
-          <h3 className="text-2xl font-bold text-gray-300">
-            {isHackMode ? "Hack & Defend Mode" : "FixMyCode AI"}
-          </h3>
-          <p className="text-center max-w-md">
-            {isHackMode 
-              ? "Paste code to run a full penetration test simulation. The AI will identify attack vectors and generate a secured version."
-              : "Paste your code on the left and select a mode. The AI will detect bugs, fix errors, and optimize performance instantly."
-            }
-          </p>
-          <div className="grid grid-cols-3 gap-4 text-xs font-mono opacity-70">
-            {isHackMode ? (
-              <>
-                 <div className="flex items-center space-x-2 text-red-400"><Unlock size={14}/> <span>Exploit Sim</span></div>
-                 <div className="flex items-center space-x-2 text-green-400"><Shield size={14}/> <span>Auto-Defense</span></div>
-                 <div className="flex items-center space-x-2 text-blue-400"><FileCheck size={14}/> <span>Secure Patch</span></div>
-              </>
-            ) : (
-              <>
-                <div className="flex items-center space-x-2"><CheckCircle size={14}/> <span>Auto-Fix</span></div>
-                <div className="flex items-center space-x-2"><Shield size={14}/> <span>Security Scan</span></div>
-                <div className="flex items-center space-x-2"><Clock size={14}/> <span>Complexity</span></div>
-              </>
-            )}
-          </div>
-        </div>
-      );
-    }
-
-    // Interview Mode Spoiler Protection
     if (mode === AnalysisMode.INTERVIEW && !interviewRevealed && activeTab !== 'bugs') {
-      return (
-        <div className="flex flex-col items-center justify-center h-full space-y-6 p-8">
-          <div className="bg-gray-800 p-8 rounded-xl border border-gray-700 max-w-lg w-full shadow-2xl">
-            <h3 className="text-xl font-bold text-yellow-400 mb-4 flex items-center">
-              <EyeOff className="mr-2" /> Interview Mode Active
-            </h3>
-            <p className="text-gray-300 mb-6">
-              The solution is hidden to encourage debugging. 
-              Review the <span className="text-blue-400 font-mono">Root Cause</span> (Bugs tab) for hints first.
+       return (
+        <div className="flex flex-col items-center justify-center h-full space-y-8 p-12">
+          <div className="bg-surface border border-yellow-500/20 p-8 rounded-2xl max-w-md w-full shadow-2xl shadow-yellow-900/10 text-center">
+            <EyeOff className="w-12 h-12 text-yellow-500 mx-auto mb-4" />
+            <h3 className="text-xl font-bold text-yellow-400 mb-2">Interview Mode Active</h3>
+            <p className="text-slate-400 text-sm mb-6 leading-relaxed">
+              We've hidden the solution. Study the root cause hints first. Do not reveal until you have a hypothesis.
             </p>
             <button 
               onClick={() => setInterviewRevealed(true)}
-              className="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-bold transition-colors flex items-center justify-center space-x-2"
+              className="w-full py-3 bg-yellow-500/10 hover:bg-yellow-500/20 border border-yellow-500/50 text-yellow-500 rounded-lg font-bold transition-all flex items-center justify-center space-x-2"
             >
               <Eye size={18} />
               <span>Reveal Solution</span>
@@ -154,397 +215,253 @@ const App: React.FC = () => {
       );
     }
 
-    // --- Hack & Defend Mode Tabs ---
-    if (isHackMode && result.hackAnalysis) {
-      switch (activeTab) {
-        case 'hack_simulation':
-          return (
-            <div className="p-6 space-y-6 overflow-y-auto h-full">
-              {result.hackAnalysis.vulnerabilities.map((vuln, idx) => (
-                <div key={idx} className="bg-red-950/20 border border-red-900/50 rounded-lg p-5">
-                  <div className="flex items-center justify-between mb-4">
-                    <h4 className="text-red-400 font-bold flex items-center text-lg">
-                      <Unlock size={20} className="mr-2" /> {vuln.name}
-                    </h4>
-                    <span className="bg-red-600 text-white text-xs font-bold px-2 py-1 rounded uppercase">{vuln.severity}</span>
-                  </div>
-                  <div className="space-y-4">
-                     <div>
-                       <span className="text-xs uppercase text-gray-500 font-bold block mb-1">Target Location</span>
-                       <span className="font-mono text-sm bg-gray-900 px-2 py-1 rounded text-gray-300">Line {vuln.line}</span>
-                     </div>
-                     <div>
-                       <span className="text-xs uppercase text-gray-500 font-bold block mb-1">Exploit Simulation</span>
-                       <p className="text-gray-300 text-sm whitespace-pre-wrap">{vuln.exploitSteps}</p>
-                     </div>
-                     <div>
-                       <span className="text-xs uppercase text-gray-500 font-bold block mb-1">Example Payload</span>
-                       <code className="block bg-black p-3 rounded text-red-300 font-mono text-xs overflow-x-auto border border-red-900/30">
-                         {vuln.payload}
-                       </code>
-                     </div>
-                  </div>
-                </div>
-              ))}
-              {result.hackAnalysis.vulnerabilities.length === 0 && (
-                <div className="flex flex-col items-center justify-center h-64 text-green-500">
-                  <ShieldCheck size={64} className="mb-4" />
-                  <h3 className="text-xl font-bold">System Secure</h3>
-                  <p className="text-gray-400">No critical vulnerabilities detected in simulation.</p>
+    // --- Content Routing based on Tab ---
+    
+    // Tech Debt Special Render
+    if (isDebtMode && activeTab === 'debt_scores' && result.techDebtAnalysis) {
+      return renderTechDebtScore(result.techDebtAnalysis.scores);
+    }
+
+    // Default renderings for text/list based tabs
+    return (
+      <div className="h-full overflow-y-auto">
+        {/* Bugs / Vulns List */}
+        {(activeTab === 'bugs' || activeTab === 'hack_simulation' || activeTab === 'debt_sources') && (
+           <div className="p-6 space-y-4">
+              {/* Root Cause Card (Only for Bugs) */}
+              {activeTab === 'bugs' && (
+                <div className="bg-surface border border-white/10 p-5 rounded-xl mb-6 shadow-lg">
+                  <h3 className="text-xs uppercase tracking-widest text-slate-500 font-bold mb-3 flex items-center">
+                    <Activity size={14} className="mr-2" /> Root Cause Analysis
+                  </h3>
+                  <p className="text-slate-300 leading-relaxed font-light">{result.rootCause}</p>
                 </div>
               )}
-            </div>
-          );
-        
-        case 'attack_impact':
-          return (
-            <div className="p-6 space-y-4 overflow-y-auto h-full">
-              {result.hackAnalysis.vulnerabilities.map((vuln, idx) => (
-                <div key={idx} className="bg-orange-950/20 border border-orange-900/50 rounded-lg p-5 flex items-start space-x-4">
-                   <div className="flex-none p-3 bg-orange-900/30 rounded-lg text-orange-400">
-                      <Skull size={24} />
-                   </div>
-                   <div>
-                     <h4 className="text-orange-300 font-bold text-lg mb-2">{vuln.name} Impact</h4>
-                     <p className="text-gray-300 text-sm leading-relaxed">{vuln.impact}</p>
-                   </div>
-                </div>
-              ))}
-            </div>
-          );
 
-        case 'protection_patch':
-          return (
-            <div className="p-6 space-y-6 overflow-y-auto h-full">
-               {result.hackAnalysis.vulnerabilities.map((vuln, idx) => (
-                <div key={idx} className="bg-green-950/20 border border-green-900/50 rounded-lg p-5">
-                   <div className="flex items-center space-x-2 mb-4 border-b border-green-900/30 pb-3">
-                     <ShieldCheck className="text-green-500" size={20} />
-                     <h4 className="text-green-400 font-bold">{vuln.name} Defense</h4>
-                   </div>
-                   <div className="grid gap-4">
-                     <div>
-                       <span className="text-xs uppercase text-green-600/70 font-bold block mb-1">Patch Explanation</span>
-                       <p className="text-gray-300 text-sm">{vuln.patchExplanation}</p>
-                     </div>
-                     <div>
-                       <span className="text-xs uppercase text-green-600/70 font-bold block mb-1">Long-term Strategy</span>
-                       <p className="text-gray-300 text-sm italic border-l-2 border-green-700 pl-3 py-1 bg-green-900/10">
-                         {vuln.defenseStrategy}
-                       </p>
-                     </div>
-                   </div>
-                </div>
+              {/* Dynamic List Items */}
+              {(isHackMode ? result.hackAnalysis?.vulnerabilities : isDebtMode ? result.techDebtAnalysis?.issues : result.bugs)?.map((item: any, idx: number) => (
+                 <div key={idx} className={`
+                    p-5 rounded-xl border transition-all hover:bg-white/5
+                    ${isHackMode 
+                       ? 'bg-neon-red/5 border-neon-red/20 hover:border-neon-red/40' 
+                       : isDebtMode 
+                         ? 'bg-neon-purple/5 border-neon-purple/20 hover:border-neon-purple/40'
+                         : 'bg-red-500/5 border-red-500/20 hover:border-red-500/40'}
+                 `}>
+                    <div className="flex justify-between items-start mb-2">
+                       <h4 className={`font-bold text-sm ${isHackMode ? 'text-neon-red' : isDebtMode ? 'text-neon-purple' : 'text-red-400'}`}>
+                         {item.name || item.issue || "Bug Detected"}
+                       </h4>
+                       <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded border ${
+                         item.severity === 'Critical' ? 'bg-red-500/10 border-red-500 text-red-500' :
+                         item.severity === 'High' ? 'bg-orange-500/10 border-orange-500 text-orange-500' :
+                         'bg-yellow-500/10 border-yellow-500 text-yellow-500'
+                       }`}>
+                         {item.severity}
+                       </span>
+                    </div>
+                    {item.exploitSteps && (
+                      <div className="mb-3 bg-black/30 p-3 rounded border border-white/5">
+                        <p className="text-xs text-slate-400 font-mono">{item.exploitSteps}</p>
+                      </div>
+                    )}
+                    <p className="text-slate-400 text-sm mb-3">{item.description || item.impact}</p>
+                    <div className="flex items-center text-xs font-mono text-slate-600">
+                      <span className="bg-white/5 px-2 py-1 rounded mr-2 text-slate-400">Line {item.line}</span>
+                      {item.category && <span>{item.category}</span>}
+                    </div>
+                 </div>
               ))}
-            </div>
-          );
+              
+              {/* Empty States for lists */}
+              {((isHackMode && result.hackAnalysis?.vulnerabilities.length === 0) || (!isHackMode && !isDebtMode && result.bugs.length === 0)) && (
+                 <div className="flex flex-col items-center justify-center h-40 text-neon-green/50">
+                    <CheckCircle size={48} className="mb-2" />
+                    <span className="text-neon-green">Clean Code Detected</span>
+                 </div>
+              )}
+           </div>
+        )}
 
-        case 'secure_code':
-           return (
-            <div className="h-full flex flex-col">
-              <div className="flex justify-between items-center px-4 py-2 bg-[#0f172a] border-b border-gray-800">
-                <span className="text-xs text-green-400 font-mono font-bold flex items-center">
-                   <FileCheck size={14} className="mr-2"/> Secure Patch Diff
+        {/* Code Views (Fixed / Secure / Refactored) */}
+        {(activeTab === 'fixed' || activeTab === 'secure_code' || activeTab === 'refactored_code' || activeTab === 'optimized') && (
+           <div className="h-full flex flex-col">
+              <div className="flex justify-between items-center px-6 py-3 border-b border-white/5 bg-surface/50 backdrop-blur">
+                <span className="text-xs font-mono text-slate-500 flex items-center">
+                   <GitPullRequest size={14} className="mr-2"/> 
+                   {activeTab === 'fixed' ? 'Bug Fixes' : activeTab === 'secure_code' ? 'Security Patch' : activeTab === 'optimized' ? 'Optimized' : 'Architecture Refactor'}
                 </span>
                 <button 
-                  onClick={() => copyToClipboard(result.hackAnalysis!.secureCode)}
-                  className="flex items-center space-x-1 text-xs text-blue-400 hover:text-blue-300 transition-colors"
+                  onClick={() => copyToClipboard(
+                    activeTab === 'fixed' ? result.fixedCode : 
+                    activeTab === 'secure_code' ? result.hackAnalysis!.secureCode : 
+                    activeTab === 'optimized' ? result.optimizedCode :
+                    result.techDebtAnalysis!.refactoredCode
+                  )}
+                  className="flex items-center space-x-2 text-xs font-bold text-neon-cyan hover:text-cyan-300 transition-colors"
                 >
-                  <Copy size={12} /> <span>Copy Secure Code</span>
+                  <Copy size={12} /> <span>COPY</span>
                 </button>
               </div>
-              <div className="flex-1 overflow-hidden relative">
-                <DiffViewer original={inputCode} modified={result.hackAnalysis.secureCode} />
+              <div className="flex-1 relative">
+                <DiffViewer 
+                  original={inputCode} 
+                  modified={
+                    activeTab === 'fixed' ? result.fixedCode : 
+                    activeTab === 'secure_code' ? result.hackAnalysis!.secureCode : 
+                    activeTab === 'optimized' ? result.optimizedCode :
+                    result.techDebtAnalysis!.refactoredCode
+                  } 
+                />
               </div>
-            </div>
-           );
+           </div>
+        )}
 
-        case 'safety_checklist':
-           return (
-             <div className="p-8 h-full overflow-y-auto flex flex-col items-center">
-                <div className="relative w-48 h-48 flex items-center justify-center mb-8">
-                   <svg className="w-full h-full transform -rotate-90">
-                     <circle cx="96" cy="96" r="88" className="text-gray-800" strokeWidth="12" fill="none" stroke="currentColor" />
-                     <circle 
-                        cx="96" cy="96" r="88" 
-                        className={`${result.hackAnalysis.securityScore > 80 ? 'text-green-500' : result.hackAnalysis.securityScore > 50 ? 'text-yellow-500' : 'text-red-500'} transition-all duration-1000 ease-out`}
-                        strokeWidth="12" 
-                        fill="none" 
-                        stroke="currentColor" 
-                        strokeDasharray={553} 
-                        strokeDashoffset={553 - (553 * result.hackAnalysis.securityScore) / 100}
-                        strokeLinecap="round"
-                     />
-                   </svg>
-                   <div className="absolute flex flex-col items-center">
-                      <span className="text-4xl font-bold text-white">{result.hackAnalysis.securityScore}</span>
-                      <span className="text-xs text-gray-400 uppercase tracking-widest">Score</span>
-                   </div>
-                </div>
-
-                <div className="w-full max-w-2xl bg-[#1e293b] rounded-xl border border-gray-700 overflow-hidden">
-                   <div className="bg-gray-800/50 px-6 py-4 border-b border-gray-700 flex items-center justify-between">
-                      <h4 className="font-bold text-gray-200 flex items-center">
-                        <CheckSquare className="mr-2 text-blue-400" size={18} /> Final Safety Checklist
-                      </h4>
-                      <span className="text-xs text-gray-500">{result.hackAnalysis.safetyChecklist.length} checks</span>
-                   </div>
-                   <div className="divide-y divide-gray-700/50">
-                      {result.hackAnalysis.safetyChecklist.map((item, idx) => (
-                        <div key={idx} className="px-6 py-4 flex items-center justify-between hover:bg-gray-800/30 transition-colors">
-                           <span className="text-sm text-gray-300">{item.item}</span>
-                           <span className={`px-2 py-1 rounded text-xs font-bold uppercase ${
-                              item.status === 'Secure' ? 'bg-green-900/30 text-green-400 border border-green-900/50' :
-                              item.status === 'Patched' ? 'bg-blue-900/30 text-blue-400 border border-blue-900/50' :
-                              'bg-red-900/30 text-red-400 border border-red-900/50'
-                           }`}>
-                             {item.status}
-                           </span>
+        {/* Checklists & Impact & Risks */}
+        {(activeTab === 'safety_checklist' || activeTab === 'engineering_checklist' || activeTab === 'attack_impact' || activeTab === 'future_risk' || activeTab === 'protection_patch') && (
+           <div className="p-6 space-y-3">
+              {(
+                 activeTab === 'safety_checklist' ? result.hackAnalysis?.safetyChecklist :
+                 activeTab === 'engineering_checklist' ? result.techDebtAnalysis?.engineeringChecklist :
+                 activeTab === 'attack_impact' ? result.hackAnalysis?.vulnerabilities : // Mapping vulns to impact cards
+                 activeTab === 'protection_patch' ? result.hackAnalysis?.vulnerabilities : // Mapping vulns to patch cards
+                 result.techDebtAnalysis?.risks
+              )?.map((item: any, idx: number) => {
+                 // Different card styles for different content types
+                 if (activeTab === 'future_risk') {
+                   return (
+                     <div key={idx} className="bg-yellow-500/5 border border-yellow-500/20 p-4 rounded-xl">
+                        <div className="flex justify-between mb-2"><h4 className="text-yellow-500 font-bold text-sm">Risk Prediction</h4><span className="text-[10px] uppercase font-bold text-yellow-600 border border-yellow-600 px-1 rounded">{item.likelihood}</span></div>
+                        <p className="text-slate-300 text-sm mb-2">{item.prediction}</p>
+                        <div className="flex items-center text-xs text-slate-500"><Clock size={12} className="mr-1"/> {item.timeframe}</div>
+                     </div>
+                   )
+                 }
+                 if (activeTab === 'attack_impact') {
+                    return (
+                      <div key={idx} className="bg-orange-500/5 border border-orange-500/20 p-4 rounded-xl flex gap-4">
+                        <div className="mt-1"><Flame size={18} className="text-orange-500"/></div>
+                        <div>
+                          <h4 className="text-orange-400 font-bold text-sm mb-1">{item.name}</h4>
+                          <p className="text-slate-400 text-xs leading-relaxed">{item.impact}</p>
                         </div>
-                      ))}
-                   </div>
-                </div>
-             </div>
-           );
-      }
-    }
-
-    // --- Standard Modes Tabs ---
-    switch (activeTab) {
-      case 'bugs':
-        return (
-          <div className="p-6 space-y-6 overflow-y-auto h-full">
-            <div className="bg-[#1e293b] p-4 rounded-lg border border-gray-700">
-              <h3 className="text-sm uppercase tracking-wider text-gray-400 font-semibold mb-2">Root Cause Analysis</h3>
-              <p className="text-gray-200 leading-relaxed whitespace-pre-wrap">{result.rootCause}</p>
-            </div>
-
-            <div className="space-y-3">
-              <h3 className="text-sm uppercase tracking-wider text-gray-400 font-semibold">Detected Issues</h3>
-              {result.bugs.length === 0 ? (
-                <div className="text-green-400 flex items-center space-x-2 bg-green-900/20 p-4 rounded-lg border border-green-900/50">
-                  <CheckCircle size={18} />
-                  <span>No obvious bugs detected!</span>
-                </div>
-              ) : (
-                result.bugs.map((bug, idx) => (
-                  <div key={idx} className="flex items-start space-x-3 bg-red-900/10 p-4 rounded-lg border border-red-900/30 hover:border-red-500/50 transition-colors">
-                    <div className="flex-none mt-1">
-                      <AlertTriangle size={18} className={bug.severity === 'Critical' ? 'text-red-500' : 'text-yellow-500'} />
-                    </div>
-                    <div>
-                      <div className="flex items-center space-x-2 mb-1">
-                        <span className="text-xs font-mono bg-gray-800 px-2 py-0.5 rounded text-gray-300">Line {bug.line}</span>
-                        <span className={`text-xs font-bold px-2 py-0.5 rounded ${
-                          bug.severity === 'Critical' ? 'bg-red-500 text-white' : 
-                          bug.severity === 'Warning' ? 'bg-yellow-600 text-white' : 'bg-blue-600 text-white'
-                        }`}>{bug.severity}</span>
                       </div>
-                      <p className="text-gray-300 text-sm">{bug.description}</p>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-        );
-      
-      case 'fixed':
-        return (
-          <div className="h-full flex flex-col">
-             <div className="flex justify-between items-center px-4 py-2 bg-[#0f172a] border-b border-gray-800">
-               <span className="text-xs text-gray-400 font-mono">Diff View (Original vs Fixed)</span>
-               <button 
-                  onClick={() => copyToClipboard(result.fixedCode)}
-                  className="flex items-center space-x-1 text-xs text-blue-400 hover:text-blue-300 transition-colors"
-               >
-                 <Copy size={12} /> <span>Copy Code</span>
-               </button>
-             </div>
-             <div className="flex-1 overflow-hidden relative">
-               <DiffViewer original={inputCode} modified={result.fixedCode} />
-             </div>
-          </div>
-        );
-
-      case 'optimized':
-        return (
-          <div className="h-full flex flex-col">
-            <div className="p-4 bg-[#1e293b] border-b border-gray-700">
-               <h3 className="text-sm font-semibold text-yellow-400 mb-1 flex items-center"><Maximize2 size={14} className="mr-2"/> Performance Summary</h3>
-               <p className="text-sm text-gray-300">{result.performanceSummary}</p>
-            </div>
-             <div className="flex-1 overflow-hidden relative flex flex-col">
-                <div className="absolute top-2 right-4 z-10">
-                   <button 
-                      onClick={() => copyToClipboard(result.optimizedCode)}
-                      className="bg-gray-800/80 backdrop-blur hover:bg-gray-700 text-gray-300 p-2 rounded-md border border-gray-600 transition-all"
-                      title="Copy Optimized Code"
-                   >
-                     <Copy size={16} />
-                   </button>
-                </div>
-               <CodeEditor value={result.optimizedCode} onChange={() => {}} language={language} readOnly />
-             </div>
-             <div className="p-4 bg-[#1e293b] border-t border-gray-700 space-y-2">
-                <h4 className="text-xs font-semibold text-gray-400 uppercase">Refactoring Suggestions</h4>
-                <ul className="list-disc list-inside text-sm text-gray-300 space-y-1">
-                   {result.refactoringSuggestions.map((s, i) => <li key={i}>{s}</li>)}
-                </ul>
-             </div>
-          </div>
-        );
-
-      case 'security':
-        return (
-          <div className="p-6 space-y-4 overflow-y-auto h-full">
-            {result.securityWarnings.length === 0 ? (
-               <div className="flex flex-col items-center justify-center h-48 text-green-400 space-y-2 opacity-70">
-                  <Shield size={48} />
-                  <span className="text-lg">No security vulnerabilities detected.</span>
-               </div>
-            ) : (
-              result.securityWarnings.map((sec, idx) => (
-                <div key={idx} className="bg-orange-900/10 border border-orange-900/30 rounded-lg p-4">
-                  <div className="flex justify-between items-start mb-2">
-                    <h4 className="font-bold text-orange-200 flex items-center">
-                       <ShieldAlert size={16} className="mr-2"/> {sec.vulnerability}
-                    </h4>
-                    <span className={`text-xs px-2 py-1 rounded font-bold ${
-                      sec.severity === 'High' ? 'bg-red-500' : 
-                      sec.severity === 'Medium' ? 'bg-orange-500' : 'bg-yellow-500'
-                    } text-white`}>{sec.severity}</span>
-                  </div>
-                  <div className="text-sm text-gray-300 mb-2">
-                    <span className="font-semibold text-gray-500 uppercase text-xs">Fix:</span> {sec.fix}
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        );
-
-      case 'complexity':
-        return (
-          <div className="p-8 space-y-8 overflow-y-auto h-full flex flex-col items-center justify-center">
-             <div className="grid grid-cols-2 gap-8 w-full max-w-2xl">
-                <div className="bg-[#1e293b] p-6 rounded-2xl border border-gray-700 flex flex-col items-center text-center hover:border-blue-500 transition-colors">
-                   <Clock className="w-10 h-10 text-blue-400 mb-4" />
-                   <h3 className="text-gray-400 uppercase text-xs font-bold tracking-wider mb-2">Time Complexity</h3>
-                   <span className="text-3xl font-mono font-bold text-white">{result.complexity.time}</span>
-                </div>
-                <div className="bg-[#1e293b] p-6 rounded-2xl border border-gray-700 flex flex-col items-center text-center hover:border-purple-500 transition-colors">
-                   <Maximize2 className="w-10 h-10 text-purple-400 mb-4" />
-                   <h3 className="text-gray-400 uppercase text-xs font-bold tracking-wider mb-2">Space Complexity</h3>
-                   <span className="text-3xl font-mono font-bold text-white">{result.complexity.space}</span>
-                </div>
-             </div>
-             <div className="max-w-2xl text-center">
-               <h4 className="text-gray-500 uppercase text-xs font-bold mb-2">Analysis</h4>
-               <p className="text-lg text-gray-200 leading-relaxed">{result.complexity.explanation}</p>
-             </div>
-          </div>
-        );
-    }
-  };
-
-  // Calculate highlighted lines based on mode
-  const getHighlightedLines = () => {
-    if (!result) return [];
-    if (isHackMode && result.hackAnalysis) {
-      return result.hackAnalysis.vulnerabilities.map(v => v.line);
-    }
-    return result.bugs.map(b => b.line);
+                    )
+                 }
+                 // Checklists
+                 return (
+                   <div key={idx} className="flex items-center justify-between p-3 rounded-lg bg-white/5 border border-white/5 hover:bg-white/10 transition-colors">
+                      <span className="text-sm text-slate-300">{item.item}</span>
+                      <span className={`text-[10px] font-bold uppercase px-2 py-1 rounded border ${
+                        item.status === 'Secure' || item.status === 'Optimized' ? 'bg-neon-green/10 border-neon-green text-neon-green' :
+                        item.status === 'Patched' ? 'bg-neon-cyan/10 border-neon-cyan text-neon-cyan' :
+                        'bg-neon-red/10 border-neon-red text-neon-red'
+                      }`}>
+                        {item.status}
+                      </span>
+                   </div>
+                 )
+              })}
+           </div>
+        )}
+      </div>
+    );
   };
 
   return (
-    <div className="flex flex-col h-screen bg-[#0f172a] text-white overflow-hidden">
-      {/* Header */}
-      <header className="flex-none h-16 border-b border-gray-800 bg-[#0f172a] px-6 flex items-center justify-between z-10">
+    <div className="flex flex-col h-screen bg-background text-slate-200 overflow-hidden font-sans selection:bg-neon-cyan/30 selection:text-white">
+      {/* Top Bar - Ultra Minimal */}
+      <header className="flex-none h-14 border-b border-white/5 bg-surface/50 backdrop-blur-md px-6 flex items-center justify-between z-50">
         <div className="flex items-center space-x-3">
-          <div className={`p-2 rounded-lg shadow-lg ${isHackMode ? 'bg-red-600 shadow-red-900/50' : 'bg-blue-600 shadow-blue-900/50'} transition-colors duration-300`}>
-             {isHackMode ? <Skull className="text-white" size={24} /> : <CodeIcon />}
+          <div className="w-8 h-8 bg-gradient-to-br from-slate-800 to-black rounded-lg border border-white/10 flex items-center justify-center shadow-lg">
+             <div className="w-3 h-3 bg-neon-cyan rounded-full shadow-[0_0_10px_#06b6d4]"></div>
           </div>
-          <div>
-            <h1 className="text-xl font-bold tracking-tight text-white flex items-center">
-              FixMyCode AI
-              {isHackMode && <span className="ml-2 px-2 py-0.5 bg-red-900/50 text-red-200 text-[10px] uppercase rounded border border-red-700">Hack Mode</span>}
-            </h1>
-            <span className="text-xs text-gray-500 font-mono">v1.1.0 • {mode}</span>
-          </div>
+          <span className="font-bold tracking-tight text-white">FixMyCode<span className="text-slate-600">.ai</span></span>
         </div>
 
         <div className="flex items-center space-x-4">
-          <select 
-            value={language}
-            onChange={(e) => setLanguage(e.target.value as SupportedLanguage)}
-            className="bg-[#1e293b] border border-gray-700 text-gray-200 text-sm rounded-md px-3 py-1.5 outline-none focus:border-blue-500"
-          >
-            {Object.values(SupportedLanguage).map(lang => (
-              <option key={lang} value={lang}>{lang}</option>
-            ))}
-          </select>
-
-          <div className="flex bg-[#1e293b] rounded-lg p-1 border border-gray-700">
+          <div className="flex bg-black/40 rounded-lg p-1 border border-white/5">
             {Object.values(AnalysisMode).map((m) => (
               <button
                 key={m}
                 onClick={() => setMode(m)}
-                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all whitespace-nowrap ${
+                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all duration-300 ${
                   mode === m 
-                    ? (m === AnalysisMode.HACK_DEFEND ? 'bg-red-600 text-white shadow-sm' : 'bg-blue-600 text-white shadow-sm')
-                    : 'text-gray-400 hover:text-white'
+                    ? (m === AnalysisMode.HACK_DEFEND ? 'bg-neon-red text-black shadow-[0_0_15px_#f43f5e]' : 
+                       m === AnalysisMode.TECH_DEBT ? 'bg-neon-purple text-white shadow-[0_0_15px_#8b5cf6]' : 
+                       'bg-white text-black shadow-[0_0_15px_rgba(255,255,255,0.5)]')
+                    : 'text-slate-500 hover:text-slate-200'
                 }`}
               >
                 {m}
               </button>
             ))}
           </div>
-
-          <button 
-            onClick={handleAnalyze}
-            disabled={isAnalyzing || !inputCode.trim()}
-            className={`
-              flex items-center space-x-2 px-6 py-2 rounded-lg font-bold text-sm transition-all shadow-lg
-              ${isAnalyzing || !inputCode.trim() 
-                ? 'bg-gray-800 text-gray-500 cursor-not-allowed' 
-                : isHackMode
-                   ? 'bg-red-600 hover:bg-red-500 text-white hover:shadow-red-500/20 active:scale-95'
-                   : 'bg-blue-600 hover:bg-blue-500 text-white hover:shadow-blue-500/20 active:scale-95'
-              }
-            `}
-          >
-             {isAnalyzing ? <RefreshCw className="animate-spin" size={16} /> : (isHackMode ? <Terminal size={16} /> : <Play size={16} fill="currentColor" />)}
-             <span>{isAnalyzing ? 'Processing...' : (isHackMode ? 'Simulate Attack' : 'Run Analysis')}</span>
-          </button>
         </div>
       </header>
 
-      {/* Main Split View */}
+      {/* Main Workspace */}
       <main className="flex-1 flex overflow-hidden">
         {/* Left: Code Input */}
-        <div className="w-1/2 flex flex-col border-r border-gray-800">
-           <div className="flex-none px-4 py-2 bg-[#1e293b] border-b border-gray-800 flex justify-between items-center">
-             <span className="text-xs font-mono text-gray-400 flex items-center">
-                <Code className="w-3 h-3 mr-2" />
-                Input Source
-             </span>
-             <span className="text-xs text-gray-600">
-               {inputCode.length} chars
-             </span>
+        <div className="w-1/2 flex flex-col border-r border-white/5 bg-black/20 relative">
+           {/* Floating Action Bar */}
+           <div className="absolute bottom-6 right-6 z-30 flex space-x-3">
+             <button 
+               onClick={handleAnalyze}
+               disabled={isAnalyzing || !inputCode.trim()}
+               className={`
+                 group relative flex items-center space-x-2 px-6 py-3 rounded-full font-bold text-sm transition-all shadow-xl
+                 disabled:opacity-50 disabled:cursor-not-allowed
+                 ${isHackMode 
+                    ? 'bg-neon-red text-black hover:shadow-[0_0_20px_#f43f5e]' 
+                    : isDebtMode 
+                      ? 'bg-neon-purple text-white hover:shadow-[0_0_20px_#8b5cf6]'
+                      : 'bg-neon-cyan text-black hover:shadow-[0_0_20px_#06b6d4]'}
+               `}
+             >
+                {isAnalyzing ? <RefreshCw className="animate-spin" size={16} /> : <Zap size={16} fill="currentColor" />}
+                <span>{isAnalyzing ? 'PROCESSING' : isHackMode ? 'SIMULATE ATTACK' : isDebtMode ? 'CALCULATE DEBT' : 'ANALYZE CODE'}</span>
+             </button>
            </div>
-           <div className="flex-1 relative">
+
+           <div className="flex-none px-6 py-3 border-b border-white/5 flex justify-between items-center bg-white/[0.02]">
+             <div className="flex items-center space-x-2 text-xs text-slate-500 font-mono">
+               <Terminal size={12} />
+               <span>INPUT SOURCE</span>
+             </div>
+             <div className="flex items-center space-x-4">
+                <select 
+                  value={language}
+                  onChange={(e) => setLanguage(e.target.value as SupportedLanguage)}
+                  className="bg-transparent text-xs text-slate-400 focus:text-white outline-none font-mono cursor-pointer uppercase text-right"
+                >
+                  {Object.values(SupportedLanguage).map(lang => (
+                    <option key={lang} value={lang} className="bg-surface">{lang}</option>
+                  ))}
+                </select>
+             </div>
+           </div>
+           
+           <div className="flex-1 p-6 relative">
              <CodeEditor 
                 value={inputCode} 
                 onChange={setInputCode} 
                 language={language}
-                highlightLines={getHighlightedLines()}
+                highlightLines={getHighlights()}
+                mode={mode}
+                isAnalyzing={isAnalyzing}
              />
            </div>
         </div>
 
         {/* Right: Results */}
-        <div className="w-1/2 flex flex-col bg-[#0f172a]">
+        <div className="w-1/2 flex flex-col bg-surface/40 backdrop-blur-sm relative">
+           {/* Glassmorphic Background Elements */}
+           <div className="absolute inset-0 overflow-hidden pointer-events-none">
+              <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-neon-cyan/5 rounded-full blur-[100px] -translate-y-1/2 translate-x-1/3"></div>
+              {isHackMode && <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-neon-red/5 rounded-full blur-[100px] translate-y-1/3 -translate-x-1/3"></div>}
+           </div>
+
            {hasResult && (
              <ResultTabs 
                 activeTab={activeTab} 
@@ -554,7 +471,8 @@ const App: React.FC = () => {
                 mode={mode}
              />
            )}
-           <div className="flex-1 overflow-auto">
+           
+           <div className="flex-1 overflow-hidden relative z-10">
              {renderContent()}
            </div>
         </div>
@@ -562,12 +480,5 @@ const App: React.FC = () => {
     </div>
   );
 };
-
-const CodeIcon = () => (
-  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="M16 18L22 12L16 6" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-    <path d="M8 6L2 12L8 18" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-  </svg>
-);
 
 export default App;

@@ -11,9 +11,9 @@ export const analyzeCode = async (
   const modelId = "gemini-2.5-flash"; // Optimized for speed/coding
 
   const isHackMode = mode === AnalysisMode.HACK_DEFEND;
+  const isDebtMode = mode === AnalysisMode.TECH_DEBT;
 
-  let systemPrompt = `You are FixMyCode AI, a world-class senior software engineer, security analyst, and performance optimizer. 
-  Your goal is to be fast, brutally honest, and developer-first. Zero fluff.
+  let systemPrompt = `You are FixMyCode AI.
   
   Language: ${language}
   Mode: ${mode}
@@ -22,7 +22,8 @@ export const analyzeCode = async (
   - Beginner: Explain simply, define terms, be encouraging but clear.
   - Pro: Direct technical review, concise, dense information.
   - Interview: In the 'rootCause' field, ask guiding questions or give hints instead of giving the answer directly. However, YOU MUST STILL PROVIDE THE FIX in 'fixedCode' and 'optimizedCode' fields.
-  - Hack & Defend: Act as a certified ethical hacker and senior app security engineer. Focus entirely on security exploitation and defense. Identify ALL attack vectors (SQLi, XSS, etc.), simulate exploits, and provide robust defense strategies.`;
+  - Hack & Defend: Act as a certified ethical hacker and senior app security engineer. Focus entirely on security exploitation and defense.
+  - Tech Debt: Act as a brutally honest senior software architect reviewing production code. Prioritize long-term stability, scalability, and clean architecture. Detect god functions, tight coupling, anti-patterns, and spaghetti code. Your goal is to identify why this code will fail in 6 months.`;
 
   // Base properties for standard analysis
   const baseProperties: any = {
@@ -80,7 +81,6 @@ export const analyzeCode = async (
     "refactoringSuggestions",
   ];
 
-  // Add Hack & Defend specific schema if mode matches
   if (isHackMode) {
     baseProperties.hackAnalysis = {
       type: Type.OBJECT,
@@ -91,26 +91,26 @@ export const analyzeCode = async (
           items: {
             type: Type.OBJECT,
             properties: {
-              name: { type: Type.STRING, description: "Name of the attack vector" },
-              line: { type: Type.INTEGER, description: "Line number where vulnerability exists" },
-              exploitSteps: { type: Type.STRING, description: "Step-by-step guide on how a hacker would exploit this" },
-              impact: { type: Type.STRING, description: "Potential damage (data leak, takeover, etc.)" },
-              payload: { type: Type.STRING, description: "Realistic example payload used in attack" },
-              patchExplanation: { type: Type.STRING, description: "Explanation of the secure patch" },
-              defenseStrategy: { type: Type.STRING, description: "Long-term defense strategy" },
+              name: { type: Type.STRING },
+              line: { type: Type.INTEGER },
+              exploitSteps: { type: Type.STRING },
+              impact: { type: Type.STRING },
+              payload: { type: Type.STRING },
+              patchExplanation: { type: Type.STRING },
+              defenseStrategy: { type: Type.STRING },
               severity: { type: Type.STRING, enum: ["Critical", "High", "Medium", "Low"] },
             },
             required: ["name", "line", "exploitSteps", "impact", "payload", "patchExplanation", "defenseStrategy", "severity"],
           },
         },
-        secureCode: { type: Type.STRING, description: "Fully secured version of the code with all protections applied" },
-        securityScore: { type: Type.INTEGER, description: "Security score from 0 to 100 after patching" },
+        secureCode: { type: Type.STRING },
+        securityScore: { type: Type.INTEGER },
         safetyChecklist: {
           type: Type.ARRAY,
           items: {
             type: Type.OBJECT,
             properties: {
-              item: { type: Type.STRING, description: "Security checklist item (e.g., 'Input Sanitization')" },
+              item: { type: Type.STRING },
               status: { type: Type.STRING, enum: ["Secure", "Vulnerable", "Patched"] },
             },
             required: ["item", "status"],
@@ -120,6 +120,69 @@ export const analyzeCode = async (
       required: ["vulnerabilities", "secureCode", "securityScore", "safetyChecklist"],
     };
     requiredProps.push("hackAnalysis");
+  }
+
+  if (isDebtMode) {
+    baseProperties.techDebtAnalysis = {
+      type: Type.OBJECT,
+      description: "Architectural analysis and tech debt scoring",
+      properties: {
+        scores: {
+          type: Type.OBJECT,
+          properties: {
+            maintainability: { type: Type.INTEGER, description: "0-100 score" },
+            readability: { type: Type.INTEGER, description: "0-100 score" },
+            scalability: { type: Type.INTEGER, description: "0-100 score" },
+            testability: { type: Type.INTEGER, description: "0-100 score" },
+            reliability: { type: Type.INTEGER, description: "0-100 score" },
+            overall: { type: Type.INTEGER, description: "Weighted average 0-100" },
+          },
+          required: ["maintainability", "readability", "scalability", "testability", "reliability", "overall"],
+        },
+        issues: {
+          type: Type.ARRAY,
+          items: {
+            type: Type.OBJECT,
+            properties: {
+              category: { type: Type.STRING, description: "e.g., Coupling, Modularity, Naming" },
+              line: { type: Type.INTEGER },
+              issue: { type: Type.STRING },
+              impact: { type: Type.STRING, description: "Future problem caused by this" },
+              remediation: { type: Type.STRING, description: "Best practice fix" },
+              severity: { type: Type.STRING, enum: ["Critical", "High", "Medium"] },
+            },
+            required: ["category", "line", "issue", "impact", "remediation", "severity"],
+          },
+        },
+        refactoredCode: { type: Type.STRING, description: "Code refactored for clean architecture" },
+        refactorExplanation: { type: Type.STRING, description: "Summary of architectural changes made" },
+        risks: {
+          type: Type.ARRAY,
+          items: {
+            type: Type.OBJECT,
+            properties: {
+              prediction: { type: Type.STRING, description: "What will break first" },
+              likelihood: { type: Type.STRING, enum: ["High", "Medium", "Low"] },
+              timeframe: { type: Type.STRING, description: "When it will break (e.g., '6 months', 'High Load')" },
+            },
+            required: ["prediction", "likelihood", "timeframe"],
+          },
+        },
+        engineeringChecklist: {
+          type: Type.ARRAY,
+          items: {
+            type: Type.OBJECT,
+            properties: {
+              item: { type: Type.STRING },
+              status: { type: Type.STRING, enum: ["Optimized", "Debt"] },
+            },
+            required: ["item", "status"],
+          },
+        },
+      },
+      required: ["scores", "issues", "refactoredCode", "refactorExplanation", "risks", "engineeringChecklist"],
+    };
+    requiredProps.push("techDebtAnalysis");
   }
 
   const responseSchema: Schema = {

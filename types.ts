@@ -59,8 +59,9 @@ export interface HackAnalysis {
   secureCode: string;
   securityScore: number;
   safetyChecklist: SafetyChecklistItem[];
-  systemRiskRating: 'High' | 'Medium' | 'Low';
+  systemRiskRating: 'Critical' | 'High' | 'Medium' | 'Low';
   attackSurfaceSummary: string;
+  residualRiskSummary: string;
   exploitReadinessScore: number;
   defenseReadinessScore: number;
 }

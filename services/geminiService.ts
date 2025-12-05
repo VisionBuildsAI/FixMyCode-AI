@@ -25,30 +25,51 @@ export const analyzeCode = async (
   - Tech Debt: Act as a brutally honest senior software architect reviewing production code. Prioritize long-term stability, scalability, and clean architecture. Detect god functions, tight coupling, anti-patterns, and spaghetti code. Your goal is to identify why this code will fail in 6 months.`;
 
   if (isHackMode) {
-    systemPrompt = `You are an elite Real-World Cybersecurity Exploitation & Defense Engineer.
-    Your job is to analyze the given source code strictly for REALISTIC, REAL-WORLD exploitable vulnerabilities, simulate how a real attacker would exploit them, and then provide practical, production-grade defenses.
+    systemPrompt = `You are an elite application security engineer + backend architect hired to harden this system for real-world production.
+    Your mission is to eliminate all CRITICAL, HIGH, and MEDIUM vulnerabilities found in the following report and to rebuild the security model correctly.
 
-    🚦 SEVERITY CLASSIFICATION (MANDATORY)
-    You may ONLY use these three levels:
-    🔴 HIGH — Causes: Account takeover, Direct financial loss, RCE, Full data breach.
-    🟠 MEDIUM — Causes: Local data tampering, Logic bypass, DoS abuse, Limited privacy leaks.
-    🟢 LOW — Causes: UI manipulation, Local-only changes, Developer bad practice, No attacker benefit.
+    ✅ MANDATORY RULES BEFORE MARKING ANY ISSUE AS “SAFE”
+    You MUST:
+    - Never lower severity unless the root cause is eliminated, not patched superficially.
+    - Never rely on client-side security for: Authentication, Authorization, Role validation, Balance/payments.
+    - Never assume: Inputs are trusted, Users are honest, Frontend validations will exist.
+    - Never store: Passwords, Hashes, Salts, Tokens, Secrets in client-side storage.
+    - All fixes must: Be server-side enforced, Be fail-safe, Be bypass-resistant.
 
-    ✅ DANGER CLASSIFICATION RULES (Strictly Enforced)
-    1. Direct Exploitability: Must be exploitable directly by a real attacker using normal tools (browser, API) without needing another vuln, malware, or admin access.
-    2. Independent Attack Chain: Must work alone. Do not assume "If XSS exists" or "If user installs malware".
-    3. Real Damage Test: HIGH requires account takeover, money loss, or data breach. UI glitches are NOT High.
-    4. Remote Feasibility: HIGH must be doable over network/API. Local-only attacks are Max MEDIUM.
-    5. Business Impact: Must harm money, identity, or trust. Academic risks are downgraded.
+    🚨 GLOBAL LOGIC OVERRIDE RULE
+    If ANY of the following exist:
+    - Remote Code Execution
+    - Authentication bypass
+    - Unauthorized money transfer
+    - Token/session theft
+    - Password cracking feasibility
+    → Then System Risk Rating = CRITICAL (forced).
+    You are forbidden from outputting “Low” or “Medium” system risk if these exist.
 
-    ⛔ FORBIDDEN:
-    - Calling anything "Critical" without a full remote exploit chain.
-    - Fear-mongering language ("Apocalyptic").
-    - Assuming existing compromise.
+    🛠️ WHAT YOU MUST AUTOMATICALLY FIX
+    1. Remote Code Execution: Remove exec/eval/spawn. Replace with allowlist or disable route.
+    2. Auth/AuthZ Failures: Enforce JWT/Session. Check ownership (req.user === resource.owner). Block forged 'from' fields.
+    3. Password Storage: Replace SHA-256 with bcrypt/argon2. Enforce complexity/rate limits.
+    4. Brute Force: Add rate limiting, IP throttling, generic errors.
+    5. XSS: Sanitize inputs. Replace innerHTML with textContent. Enforce CSP.
+    6. Business Logic: Strict numeric validation (no negatives), atomic transactions.
+    7. Secrets: Enforce env vars.
 
-    🌍 REAL-WORLD FILTER:
-    - Ignore nation-state models.
-    - Ignore academic-only vulnerabilities.
+    🧠 OUTPUT INSTRUCTIONS
+    For the 'patchExplanation' field of each vulnerability, you MUST provide:
+    1. Original Vulnerability Name
+    2. Why It Was Dangerous
+    3. Exact Code-Level Fix Logic
+    4. Why This Fix Is Now Exploit-Resistant
+    5. Updated Severity (Justify any downgrade)
+    
+    You must also provide a 'residualRiskSummary' in the main analysis object.
+
+    🚫 FORBIDDEN BEHAVIOR
+    - Do NOT mark safe without fixing.
+    - Do NOT recommend "best practices" without implementation.
+    - Do NOT say "educational purposes only".
+    - Do NOT downgrade CRITICAL issues due to assumptions.
     
     You must output accurate Offline/Online exploitability flags for every vulnerability.`;
   }
@@ -124,7 +145,7 @@ export const analyzeCode = async (
               exploitSteps: { type: Type.STRING, description: "Real-world attack flow (2-5 steps)" },
               impact: { type: Type.STRING, description: "Actual gain for attacker/loss for user" },
               payload: { type: Type.STRING },
-              patchExplanation: { type: Type.STRING, description: "Production-grade fix explanation" },
+              patchExplanation: { type: Type.STRING, description: "MANDATORY: 1. Original Name, 2. Why Dangerous, 3. Exact Fix, 4. Why Resistant, 5. Updated Severity" },
               defenseStrategy: { type: Type.STRING, description: "Long-term defense strategy" },
               severity: { type: Type.STRING, enum: ["Critical", "High", "Medium", "Low"] },
               isOfflineExploitable: { type: Type.BOOLEAN, description: "Can this happen without internet?" },
@@ -146,12 +167,13 @@ export const analyzeCode = async (
             required: ["item", "status"],
           },
         },
-        systemRiskRating: { type: Type.STRING, enum: ["High", "Medium", "Low"], description: "Overall system risk rating" },
+        systemRiskRating: { type: Type.STRING, enum: ["Critical", "High", "Medium", "Low"], description: "Overall system risk rating. Must be CRITICAL if RCE, Auth Bypass, or Money Theft exists." },
         attackSurfaceSummary: { type: Type.STRING, description: "Summary of the weakest layer (e.g., API, Auth, DB)" },
+        residualRiskSummary: { type: Type.STRING, description: "Summary of remaining risks after applying fixes." },
         exploitReadinessScore: { type: Type.INTEGER, description: "0-100 score: How easy is it to attack?" },
         defenseReadinessScore: { type: Type.INTEGER, description: "0-100 score: How strong are current protections?" },
       },
-      required: ["vulnerabilities", "secureCode", "securityScore", "safetyChecklist", "systemRiskRating", "attackSurfaceSummary", "exploitReadinessScore", "defenseReadinessScore"],
+      required: ["vulnerabilities", "secureCode", "securityScore", "safetyChecklist", "systemRiskRating", "attackSurfaceSummary", "residualRiskSummary", "exploitReadinessScore", "defenseReadinessScore"],
     };
     requiredProps.push("hackAnalysis");
   }

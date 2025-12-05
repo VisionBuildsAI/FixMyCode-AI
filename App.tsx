@@ -4,7 +4,7 @@ import {
   Code as CodeIcon, Clock, Maximize2, RefreshCw, Eye, EyeOff, Unlock,
   Terminal, Skull, FileCheck, CheckSquare, Activity, AlertOctagon, GitPullRequest,
   Zap, Command, ChevronRight, BarChart, Flame, Wifi, WifiOff, Target, Swords,
-  AlertCircle
+  AlertCircle, Lock, Siren
 } from 'lucide-react';
 import CodeEditor from './components/CodeEditor';
 import ResultTabs from './components/ResultTabs';
@@ -242,6 +242,27 @@ const App: React.FC = () => {
               {/* Hack & Defend Summary Dashboard */}
               {activeTab === 'hack_simulation' && result.hackAnalysis && (
                 <div className="space-y-4 mb-6">
+                  {/* Critical Status Banner */}
+                  {result.hackAnalysis.totalSystemStatus && (
+                     <div className={`p-4 rounded-xl border flex items-center justify-between mb-4 shadow-xl ${
+                        result.hackAnalysis.systemRiskRating === 'Critical' 
+                        ? 'bg-red-950/50 border-red-500/50 shadow-red-900/20 animate-pulse-glow' 
+                        : 'bg-surface border-white/10'
+                     }`}>
+                        <div className="flex items-center space-x-3">
+                           {result.hackAnalysis.systemRiskRating === 'Critical' ? <Siren size={24} className="text-red-500 animate-pulse" /> : <ShieldCheck size={24} className="text-neon-green" />}
+                           <div>
+                              <h4 className="text-[10px] uppercase font-bold text-slate-400 tracking-widest">System Status</h4>
+                              <p className={`text-lg font-black tracking-tight ${
+                                 result.hackAnalysis.systemRiskRating === 'Critical' ? 'text-red-500' : 'text-slate-200'
+                              }`}>
+                                 {result.hackAnalysis.totalSystemStatus}
+                              </p>
+                           </div>
+                        </div>
+                     </div>
+                  )}
+
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {/* System Risk Card */}
                     <div className={`bg-surface border p-4 rounded-xl flex items-center justify-between shadow-lg ${
@@ -250,9 +271,9 @@ const App: React.FC = () => {
                       result.hackAnalysis.systemRiskRating === 'Medium' ? 'border-orange-500/30 bg-orange-500/5' : 'border-neon-green/30 bg-neon-green/5'
                     }`}>
                       <div>
-                        <h4 className="text-xs uppercase font-bold text-slate-500 mb-1">System Risk Rating</h4>
+                        <h4 className="text-xs uppercase font-bold text-slate-500 mb-1">Risk Rating</h4>
                         <span className={`text-2xl font-bold ${
-                          result.hackAnalysis.systemRiskRating === 'Critical' ? 'text-red-500 animate-pulse' :
+                          result.hackAnalysis.systemRiskRating === 'Critical' ? 'text-red-500' :
                           result.hackAnalysis.systemRiskRating === 'High' ? 'text-neon-red' : 
                           result.hackAnalysis.systemRiskRating === 'Medium' ? 'text-orange-500' : 'text-neon-green'
                         }`}>{result.hackAnalysis.systemRiskRating}</span>
@@ -271,7 +292,9 @@ const App: React.FC = () => {
                           <span className="text-xl font-mono font-bold text-neon-cyan">{result.hackAnalysis.defenseReadinessScore}%</span>
                         </div>
                         <div className="w-full bg-white/5 h-2 rounded-full overflow-hidden">
-                          <div className="bg-neon-cyan h-full rounded-full transition-all duration-1000" style={{width: `${result.hackAnalysis.defenseReadinessScore}%`}}></div>
+                          <div className={`h-full rounded-full transition-all duration-1000 ${
+                             result.hackAnalysis.defenseReadinessScore <= 30 ? 'bg-red-500' : 'bg-neon-cyan'
+                          }`} style={{width: `${result.hackAnalysis.defenseReadinessScore}%`}}></div>
                         </div>
                      </div>
                      
@@ -286,11 +309,13 @@ const App: React.FC = () => {
                         </div>
                      </div>
 
-                     {/* Surface Summary */}
-                     <div className="bg-surface border border-white/10 p-4 rounded-xl flex flex-col justify-center">
-                        <h4 className="text-xs uppercase font-bold text-slate-500 mb-1">Weakest Link</h4>
-                        <span className="text-sm font-bold text-slate-300">{result.hackAnalysis.attackSurfaceSummary}</span>
-                     </div>
+                     {/* Immediate Impact Summary */}
+                     {result.hackAnalysis.immediateImpactSummary && (
+                       <div className="bg-surface border border-white/10 p-4 rounded-xl flex flex-col justify-center">
+                          <h4 className="text-xs uppercase font-bold text-slate-500 mb-1">Immediate Impact</h4>
+                          <span className="text-xs font-bold text-slate-300 leading-tight">{result.hackAnalysis.immediateImpactSummary}</span>
+                       </div>
+                     )}
                   </div>
                   
                   {/* Residual Risk Summary */}

@@ -62,6 +62,8 @@ export interface HackAnalysis {
   systemRiskRating: 'Critical' | 'High' | 'Medium' | 'Low';
   attackSurfaceSummary: string;
   residualRiskSummary: string;
+  immediateImpactSummary?: string;
+  totalSystemStatus?: string;
   exploitReadinessScore: number;
   defenseReadinessScore: number;
 }

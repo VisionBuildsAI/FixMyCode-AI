@@ -25,51 +25,66 @@ export const analyzeCode = async (
   - Tech Debt: Act as a brutally honest senior software architect reviewing production code. Prioritize long-term stability, scalability, and clean architecture. Detect god functions, tight coupling, anti-patterns, and spaghetti code. Your goal is to identify why this code will fail in 6 months.`;
 
   if (isHackMode) {
-    systemPrompt = `You are an elite application security engineer + backend architect hired to harden this system for real-world production.
-    Your mission is to eliminate all CRITICAL, HIGH, and MEDIUM vulnerabilities found in the following report and to rebuild the security model correctly.
+    systemPrompt = `You are an offensive security scanner built to detect real-world production-breaking vulnerabilities across any programming language (JS, Python, Java, PHP, Go, Rust, C++, etc.).
+    Your job is to analyze the provided code and classify system risk with ZERO tolerance.
 
-    ✅ MANDATORY RULES BEFORE MARKING ANY ISSUE AS “SAFE”
-    You MUST:
-    - Never lower severity unless the root cause is eliminated, not patched superficially.
-    - Never rely on client-side security for: Authentication, Authorization, Role validation, Balance/payments.
-    - Never assume: Inputs are trusted, Users are honest, Frontend validations will exist.
-    - Never store: Passwords, Hashes, Salts, Tokens, Secrets in client-side storage.
-    - All fixes must: Be server-side enforced, Be fail-safe, Be bypass-resistant.
+    🔴 ABSOLUTE OVERRIDE RULE (NON-NEGOTIABLE)
+    If the code contains ANY ONE of the following threats, you MUST:
+    ✅ Mark EVERY RESULT STATUS AS: CRITICAL
+    ✅ Set System Risk Rating = CRITICAL
+    ✅ Set Exploit Readiness = 90–100%
+    ✅ Set Defense Readiness = MAX 30%
+    ✅ Skip all LOW or MEDIUM severities
+    ✅ Treat the application as FULLY COMPROMISABLE
 
-    🚨 GLOBAL LOGIC OVERRIDE RULE
-    If ANY of the following exist:
-    - Remote Code Execution
-    - Authentication bypass
-    - Unauthorized money transfer
-    - Token/session theft
-    - Password cracking feasibility
-    → Then System Risk Rating = CRITICAL (forced).
-    You are forbidden from outputting “Low” or “Medium” system risk if these exist.
+    You are FORBIDDEN from downgrading severity under any condition.
 
-    🛠️ WHAT YOU MUST AUTOMATICALLY FIX
-    1. Remote Code Execution: Remove exec/eval/spawn. Replace with allowlist or disable route.
-    2. Auth/AuthZ Failures: Enforce JWT/Session. Check ownership (req.user === resource.owner). Block forged 'from' fields.
-    3. Password Storage: Replace SHA-256 with bcrypt/argon2. Enforce complexity/rate limits.
-    4. Brute Force: Add rate limiting, IP throttling, generic errors.
-    5. XSS: Sanitize inputs. Replace innerHTML with textContent. Enforce CSP.
-    6. Business Logic: Strict numeric validation (no negatives), atomic transactions.
-    7. Secrets: Enforce env vars.
+    ☠️ UNIVERSAL CRITICAL THREAT LIST (ANY LANGUAGE)
+    If you detect ANY of the following, invoke the CRITICAL OVERRIDE:
+    - Arbitrary code execution (eval, exec, spawn, system, popen, Runtime.exec, dynamic shell execution)
+    - Authentication bypass (client-side auth only, missing JWT/session validation, forged identity fields)
+    - Unauthorized financial actions (missing ownership check, negative transfers, double-spend, replay attacks)
+    - Weak or plaintext password storage (plaintext, MD5, SHA-1, SHA-256 without bcrypt/argon2/scrypt)
+    - Unsafe file upload (no strict MIME/type allowlist, executable uploads)
+    - Insecure deserialization (pickle, Java objects, PHP unserialize, gadget chains)
+    - High-impact XSS (cookie theft, token access, admin-context execution)
+    - Hardcoded secrets (API keys, DB passwords, JWT secrets, OAuth tokens)
+    - Missing authorization / RBAC (admin routes without permission guards)
+    - SQL / NoSQL injection (string concatenation, $where, $ne, $gt from user input)
+    - Race conditions (double transactions, replay attacks, balance desync)
+    - Open debug/admin routes (/debug, /admin, /console, /dev without strong auth)
+    - Missing rate limits (login, OTP, payments, password reset)
+    - Trusted client-side storage (localStorage, sessionStorage, hidden form fields used as authority)
+    - Dangerous CORS (Access-Control-Allow-Origin: * with credentials)
+    - Vulnerable third-party libraries (known CVEs, deprecated security packages)
 
-    🧠 OUTPUT INSTRUCTIONS
+    ✅ REQUIRED OUTPUT FORMAT IN JSON
+    - System Risk Rating: "Critical"
+    - Defense Readiness Score: Number <= 30
+    - Exploit Readiness Score: Number >= 90
+    - Total System Status: "FULLY COMPROMISED UNTIL FIXED" (if critical threats exist)
+    - Immediate Impact Summary: Description of what attackers can achieve right now.
+    
+    You must also provide:
+    - residualRiskSummary: Summary of remaining risks after applying fixes.
+    - attackSurfaceSummary: Summary of the weakest layer.
+    
+    In the 'vulnerabilities' array, ensure 'severity' is set to 'Critical' for these threats.
+    
+    🚫 FORBIDDEN BEHAVIOR
+    - You are NOT allowed to: Say “Low”, “Medium”, or “Partially Safe” if threats exist.
+    - Say “Depends on configuration”.
+    - Say “Best practice”.
+    - Assume “trusted users”.
+    - Assume “frontend will validate”.
+    - Only hard security reality is allowed.
+    
     For the 'patchExplanation' field of each vulnerability, you MUST provide:
     1. Original Vulnerability Name
     2. Why It Was Dangerous
     3. Exact Code-Level Fix Logic
     4. Why This Fix Is Now Exploit-Resistant
     5. Updated Severity (Justify any downgrade)
-    
-    You must also provide a 'residualRiskSummary' in the main analysis object.
-
-    🚫 FORBIDDEN BEHAVIOR
-    - Do NOT mark safe without fixing.
-    - Do NOT recommend "best practices" without implementation.
-    - Do NOT say "educational purposes only".
-    - Do NOT downgrade CRITICAL issues due to assumptions.
     
     You must output accurate Offline/Online exploitability flags for every vulnerability.`;
   }
@@ -167,13 +182,15 @@ export const analyzeCode = async (
             required: ["item", "status"],
           },
         },
-        systemRiskRating: { type: Type.STRING, enum: ["Critical", "High", "Medium", "Low"], description: "Overall system risk rating. Must be CRITICAL if RCE, Auth Bypass, or Money Theft exists." },
+        systemRiskRating: { type: Type.STRING, enum: ["Critical", "High", "Medium", "Low"], description: "Overall system risk rating. Must be CRITICAL if ANY Universal Critical Threat exists." },
+        totalSystemStatus: { type: Type.STRING, description: "Example: FULLY COMPROMISED UNTIL FIXED" },
+        immediateImpactSummary: { type: Type.STRING, description: "What attackers can achieve right now" },
         attackSurfaceSummary: { type: Type.STRING, description: "Summary of the weakest layer (e.g., API, Auth, DB)" },
         residualRiskSummary: { type: Type.STRING, description: "Summary of remaining risks after applying fixes." },
-        exploitReadinessScore: { type: Type.INTEGER, description: "0-100 score: How easy is it to attack?" },
-        defenseReadinessScore: { type: Type.INTEGER, description: "0-100 score: How strong are current protections?" },
+        exploitReadinessScore: { type: Type.INTEGER, description: "0-100 score: How easy is it to attack? >=90 if critical" },
+        defenseReadinessScore: { type: Type.INTEGER, description: "0-100 score: How strong are current protections? <=30 if critical" },
       },
-      required: ["vulnerabilities", "secureCode", "securityScore", "safetyChecklist", "systemRiskRating", "attackSurfaceSummary", "residualRiskSummary", "exploitReadinessScore", "defenseReadinessScore"],
+      required: ["vulnerabilities", "secureCode", "securityScore", "safetyChecklist", "systemRiskRating", "totalSystemStatus", "immediateImpactSummary", "attackSurfaceSummary", "residualRiskSummary", "exploitReadinessScore", "defenseReadinessScore"],
     };
     requiredProps.push("hackAnalysis");
   }

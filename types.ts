@@ -45,6 +45,8 @@ export interface HackVulnerability {
   patchExplanation: string;
   defenseStrategy: string;
   severity: 'Critical' | 'High' | 'Medium' | 'Low';
+  isOfflineExploitable: boolean;
+  isOnlineExploitable: boolean;
 }
 
 export interface SafetyChecklistItem {
@@ -57,6 +59,10 @@ export interface HackAnalysis {
   secureCode: string;
   securityScore: number;
   safetyChecklist: SafetyChecklistItem[];
+  systemRiskRating: 'High' | 'Medium' | 'Low';
+  attackSurfaceSummary: string;
+  exploitReadinessScore: number;
+  defenseReadinessScore: number;
 }
 
 export interface TechDebtScore {

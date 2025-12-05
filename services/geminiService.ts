@@ -22,8 +22,36 @@ export const analyzeCode = async (
   - Beginner: Explain simply, define terms, be encouraging but clear.
   - Pro: Direct technical review, concise, dense information.
   - Interview: In the 'rootCause' field, ask guiding questions or give hints instead of giving the answer directly. However, YOU MUST STILL PROVIDE THE FIX in 'fixedCode' and 'optimizedCode' fields.
-  - Hack & Defend: Act as a certified ethical hacker and senior app security engineer. Focus entirely on security exploitation and defense.
   - Tech Debt: Act as a brutally honest senior software architect reviewing production code. Prioritize long-term stability, scalability, and clean architecture. Detect god functions, tight coupling, anti-patterns, and spaghetti code. Your goal is to identify why this code will fail in 6 months.`;
+
+  if (isHackMode) {
+    systemPrompt = `You are an elite Real-World Cybersecurity Exploitation & Defense Engineer.
+    Your job is to analyze the given source code strictly for REALISTIC, REAL-WORLD exploitable vulnerabilities, simulate how a real attacker would exploit them, and then provide practical, production-grade defenses.
+
+    🚦 SEVERITY CLASSIFICATION (MANDATORY)
+    You may ONLY use these three levels:
+    🔴 HIGH — Causes: Account takeover, Direct financial loss, RCE, Full data breach.
+    🟠 MEDIUM — Causes: Local data tampering, Logic bypass, DoS abuse, Limited privacy leaks.
+    🟢 LOW — Causes: UI manipulation, Local-only changes, Developer bad practice, No attacker benefit.
+
+    ✅ DANGER CLASSIFICATION RULES (Strictly Enforced)
+    1. Direct Exploitability: Must be exploitable directly by a real attacker using normal tools (browser, API) without needing another vuln, malware, or admin access.
+    2. Independent Attack Chain: Must work alone. Do not assume "If XSS exists" or "If user installs malware".
+    3. Real Damage Test: HIGH requires account takeover, money loss, or data breach. UI glitches are NOT High.
+    4. Remote Feasibility: HIGH must be doable over network/API. Local-only attacks are Max MEDIUM.
+    5. Business Impact: Must harm money, identity, or trust. Academic risks are downgraded.
+
+    ⛔ FORBIDDEN:
+    - Calling anything "Critical" without a full remote exploit chain.
+    - Fear-mongering language ("Apocalyptic").
+    - Assuming existing compromise.
+
+    🌍 REAL-WORLD FILTER:
+    - Ignore nation-state models.
+    - Ignore academic-only vulnerabilities.
+    
+    You must output accurate Offline/Online exploitability flags for every vulnerability.`;
+  }
 
   // Base properties for standard analysis
   const baseProperties: any = {
@@ -91,16 +119,18 @@ export const analyzeCode = async (
           items: {
             type: Type.OBJECT,
             properties: {
-              name: { type: Type.STRING },
+              name: { type: Type.STRING, description: "Vulnerability Title" },
               line: { type: Type.INTEGER },
-              exploitSteps: { type: Type.STRING },
-              impact: { type: Type.STRING },
+              exploitSteps: { type: Type.STRING, description: "Real-world attack flow (2-5 steps)" },
+              impact: { type: Type.STRING, description: "Actual gain for attacker/loss for user" },
               payload: { type: Type.STRING },
-              patchExplanation: { type: Type.STRING },
-              defenseStrategy: { type: Type.STRING },
+              patchExplanation: { type: Type.STRING, description: "Production-grade fix explanation" },
+              defenseStrategy: { type: Type.STRING, description: "Long-term defense strategy" },
               severity: { type: Type.STRING, enum: ["Critical", "High", "Medium", "Low"] },
+              isOfflineExploitable: { type: Type.BOOLEAN, description: "Can this happen without internet?" },
+              isOnlineExploitable: { type: Type.BOOLEAN, description: "Can this happen over network/web?" },
             },
-            required: ["name", "line", "exploitSteps", "impact", "payload", "patchExplanation", "defenseStrategy", "severity"],
+            required: ["name", "line", "exploitSteps", "impact", "payload", "patchExplanation", "defenseStrategy", "severity", "isOfflineExploitable", "isOnlineExploitable"],
           },
         },
         secureCode: { type: Type.STRING },
@@ -116,8 +146,12 @@ export const analyzeCode = async (
             required: ["item", "status"],
           },
         },
+        systemRiskRating: { type: Type.STRING, enum: ["High", "Medium", "Low"], description: "Overall system risk rating" },
+        attackSurfaceSummary: { type: Type.STRING, description: "Summary of the weakest layer (e.g., API, Auth, DB)" },
+        exploitReadinessScore: { type: Type.INTEGER, description: "0-100 score: How easy is it to attack?" },
+        defenseReadinessScore: { type: Type.INTEGER, description: "0-100 score: How strong are current protections?" },
       },
-      required: ["vulnerabilities", "secureCode", "securityScore", "safetyChecklist"],
+      required: ["vulnerabilities", "secureCode", "securityScore", "safetyChecklist", "systemRiskRating", "attackSurfaceSummary", "exploitReadinessScore", "defenseReadinessScore"],
     };
     requiredProps.push("hackAnalysis");
   }

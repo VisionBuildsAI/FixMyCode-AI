@@ -3,7 +3,7 @@ import {
   Play, Copy, CheckCircle, AlertTriangle, Shield, ShieldAlert, ShieldCheck,
   Code as CodeIcon, Clock, Maximize2, RefreshCw, Eye, EyeOff, Unlock,
   Terminal, Skull, FileCheck, CheckSquare, Activity, AlertOctagon, GitPullRequest,
-  Zap, Command, ChevronRight, BarChart, Flame
+  Zap, Command, ChevronRight, BarChart, Flame, Wifi, WifiOff, Target, Swords
 } from 'lucide-react';
 import CodeEditor from './components/CodeEditor';
 import ResultTabs from './components/ResultTabs';
@@ -238,10 +238,61 @@ const App: React.FC = () => {
                 </div>
               )}
 
+              {/* Hack & Defend Summary Dashboard */}
+              {activeTab === 'hack_simulation' && result.hackAnalysis && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                  {/* System Risk Card */}
+                  <div className={`bg-surface border p-4 rounded-xl flex items-center justify-between ${
+                    result.hackAnalysis.systemRiskRating === 'High' ? 'border-neon-red/30 bg-neon-red/5' : 
+                    result.hackAnalysis.systemRiskRating === 'Medium' ? 'border-orange-500/30 bg-orange-500/5' : 'border-neon-green/30 bg-neon-green/5'
+                  }`}>
+                    <div>
+                      <h4 className="text-xs uppercase font-bold text-slate-500 mb-1">System Risk Rating</h4>
+                      <span className={`text-2xl font-bold ${
+                        result.hackAnalysis.systemRiskRating === 'High' ? 'text-neon-red' : 
+                        result.hackAnalysis.systemRiskRating === 'Medium' ? 'text-orange-500' : 'text-neon-green'
+                      }`}>{result.hackAnalysis.systemRiskRating}</span>
+                    </div>
+                    <Target size={32} className={`opacity-80 ${
+                        result.hackAnalysis.systemRiskRating === 'High' ? 'text-neon-red' : 
+                        result.hackAnalysis.systemRiskRating === 'Medium' ? 'text-orange-500' : 'text-neon-green'
+                      }`} />
+                  </div>
+
+                   {/* Defense Score Card */}
+                   <div className="bg-surface border border-white/10 p-4 rounded-xl">
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="text-xs uppercase font-bold text-slate-500">Defense Readiness</span>
+                        <span className="text-xl font-mono font-bold text-neon-cyan">{result.hackAnalysis.defenseReadinessScore}%</span>
+                      </div>
+                      <div className="w-full bg-white/5 h-2 rounded-full overflow-hidden">
+                        <div className="bg-neon-cyan h-full rounded-full transition-all duration-1000" style={{width: `${result.hackAnalysis.defenseReadinessScore}%`}}></div>
+                      </div>
+                   </div>
+                   
+                   {/* Exploit Score Card */}
+                   <div className="bg-surface border border-white/10 p-4 rounded-xl">
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="text-xs uppercase font-bold text-slate-500">Exploit Readiness</span>
+                        <span className="text-xl font-mono font-bold text-neon-red">{result.hackAnalysis.exploitReadinessScore}%</span>
+                      </div>
+                      <div className="w-full bg-white/5 h-2 rounded-full overflow-hidden">
+                        <div className="bg-neon-red h-full rounded-full transition-all duration-1000" style={{width: `${result.hackAnalysis.exploitReadinessScore}%`}}></div>
+                      </div>
+                   </div>
+
+                   {/* Surface Summary */}
+                   <div className="bg-surface border border-white/10 p-4 rounded-xl flex flex-col justify-center">
+                      <h4 className="text-xs uppercase font-bold text-slate-500 mb-1">Weakest Link</h4>
+                      <span className="text-sm font-bold text-slate-300">{result.hackAnalysis.attackSurfaceSummary}</span>
+                   </div>
+                </div>
+              )}
+
               {/* Dynamic List Items */}
               {(isHackMode ? result.hackAnalysis?.vulnerabilities : isDebtMode ? result.techDebtAnalysis?.issues : result.bugs)?.map((item: any, idx: number) => (
                  <div key={idx} className={`
-                    p-5 rounded-xl border transition-all hover:bg-white/5
+                    p-5 rounded-xl border transition-all hover:bg-white/5 group
                     ${isHackMode 
                        ? 'bg-neon-red/5 border-neon-red/20 hover:border-neon-red/40' 
                        : isDebtMode 
@@ -249,20 +300,40 @@ const App: React.FC = () => {
                          : 'bg-red-500/5 border-red-500/20 hover:border-red-500/40'}
                  `}>
                     <div className="flex justify-between items-start mb-2">
-                       <h4 className={`font-bold text-sm ${isHackMode ? 'text-neon-red' : isDebtMode ? 'text-neon-purple' : 'text-red-400'}`}>
+                       <h4 className={`font-bold text-sm flex items-center ${isHackMode ? 'text-neon-red' : isDebtMode ? 'text-neon-purple' : 'text-red-400'}`}>
+                         {isHackMode && <Swords size={16} className="mr-2" />}
                          {item.name || item.issue || "Bug Detected"}
                        </h4>
                        <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded border ${
                          item.severity === 'Critical' ? 'bg-red-500/10 border-red-500 text-red-500' :
                          item.severity === 'High' ? 'bg-orange-500/10 border-orange-500 text-orange-500' :
-                         'bg-yellow-500/10 border-yellow-500 text-yellow-500'
+                         item.severity === 'Medium' ? 'bg-yellow-500/10 border-yellow-500 text-yellow-500' :
+                         'bg-blue-500/10 border-blue-500 text-blue-500'
                        }`}>
                          {item.severity}
                        </span>
                     </div>
+
+                    {/* Offline/Online Badges for Hack Mode */}
+                    {isHackMode && (
+                      <div className="flex gap-2 mb-3">
+                         {item.isOnlineExploitable && (
+                           <span className="flex items-center text-[10px] bg-black/40 border border-white/10 px-2 py-0.5 rounded text-neon-cyan">
+                             <Wifi size={10} className="mr-1" /> Online
+                           </span>
+                         )}
+                         {item.isOfflineExploitable && (
+                           <span className="flex items-center text-[10px] bg-black/40 border border-white/10 px-2 py-0.5 rounded text-orange-400">
+                             <WifiOff size={10} className="mr-1" /> Offline
+                           </span>
+                         )}
+                      </div>
+                    )}
+
                     {item.exploitSteps && (
                       <div className="mb-3 bg-black/30 p-3 rounded border border-white/5">
-                        <p className="text-xs text-slate-400 font-mono">{item.exploitSteps}</p>
+                        <h5 className="text-[10px] uppercase font-bold text-slate-500 mb-1">Exploit Flow</h5>
+                        <p className="text-xs text-slate-400 font-mono whitespace-pre-wrap">{item.exploitSteps}</p>
                       </div>
                     )}
                     <p className="text-slate-400 text-sm mb-3">{item.description || item.impact}</p>
@@ -277,7 +348,7 @@ const App: React.FC = () => {
               {((isHackMode && result.hackAnalysis?.vulnerabilities.length === 0) || (!isHackMode && !isDebtMode && result.bugs.length === 0)) && (
                  <div className="flex flex-col items-center justify-center h-40 text-neon-green/50">
                     <CheckCircle size={48} className="mb-2" />
-                    <span className="text-neon-green">Clean Code Detected</span>
+                    <span className="text-neon-green">System Secure</span>
                  </div>
               )}
            </div>
@@ -346,6 +417,23 @@ const App: React.FC = () => {
                           <p className="text-slate-400 text-xs leading-relaxed">{item.impact}</p>
                         </div>
                       </div>
+                    )
+                 }
+                 if (activeTab === 'protection_patch') {
+                    return (
+                       <div key={idx} className="bg-neon-green/5 border border-neon-green/20 p-4 rounded-xl">
+                          <h4 className="text-neon-green font-bold text-sm mb-2 flex items-center"><ShieldCheck size={16} className="mr-2"/>{item.name} Defense</h4>
+                          <div className="space-y-3">
+                             <div>
+                               <span className="text-[10px] uppercase font-bold text-slate-500 block mb-1">Patch Logic</span>
+                               <p className="text-slate-300 text-xs">{item.patchExplanation}</p>
+                             </div>
+                             <div>
+                               <span className="text-[10px] uppercase font-bold text-slate-500 block mb-1">Strategic Defense</span>
+                               <p className="text-slate-300 text-xs">{item.defenseStrategy}</p>
+                             </div>
+                          </div>
+                       </div>
                     )
                  }
                  // Checklists

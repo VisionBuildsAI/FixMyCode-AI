@@ -4,18 +4,20 @@ import {
   Code as CodeIcon, Clock, Maximize2, RefreshCw, Eye, EyeOff, Unlock,
   Terminal, Skull, FileCheck, CheckSquare, Activity, AlertOctagon, GitPullRequest,
   Zap, Command, ChevronRight, BarChart, Flame, Wifi, WifiOff, Target, Swords,
-  AlertCircle, Lock, Siren
+  AlertCircle, Lock, Siren, BrainCircuit
 } from 'lucide-react';
 import CodeEditor from './components/CodeEditor';
 import ResultTabs from './components/ResultTabs';
 import DiffViewer from './components/DiffViewer';
 import { analyzeCode } from './services/geminiService';
+import { detectLanguage } from './utils';
 import { AnalysisMode, AnalysisResult, SupportedLanguage, Tab } from './types';
 
 const App: React.FC = () => {
   // State
   const [inputCode, setInputCode] = useState<string>('');
   const [language, setLanguage] = useState<SupportedLanguage>(SupportedLanguage.JAVASCRIPT);
+  const [confidence, setConfidence] = useState<number>(0);
   const [mode, setMode] = useState<AnalysisMode>(AnalysisMode.PRO);
   const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
   const [result, setResult] = useState<AnalysisResult | null>(null);
@@ -36,6 +38,29 @@ const App: React.FC = () => {
         // Keeping it for now but resetting tab order
     }
   }, [mode]);
+
+  // Auto-detect language effect
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      if (inputCode.trim().length > 10) {
+        const { language: detected, confidence: score } = detectLanguage(inputCode);
+        
+        // Auto-switch if confident enough, but respect manual changes if the score is low
+        if (score > 25 && detected !== language) {
+          setLanguage(detected);
+          setConfidence(score);
+        } else if (detected === language && score > 0) {
+          setConfidence(score);
+        } else if (score === 0) {
+            setConfidence(0);
+        }
+      } else {
+        setConfidence(0);
+      }
+    }, 800); // Debounce detection
+
+    return () => clearTimeout(handler);
+  }, [inputCode, language]);
 
   const handleAnalyze = async () => {
     if (!inputCode.trim()) return;
@@ -557,6 +582,15 @@ const App: React.FC = () => {
                <span>INPUT SOURCE</span>
              </div>
              <div className="flex items-center space-x-4">
+                {/* Confidence Badge */}
+                {confidence > 0 && (
+                  <div className={`flex items-center space-x-1 px-2 py-0.5 rounded border ${isHackMode ? 'bg-neon-red/10 border-neon-red/20' : 'bg-neon-cyan/10 border-neon-cyan/20'}`}>
+                     <BrainCircuit size={10} className={`${isHackMode ? 'text-neon-red' : 'text-neon-cyan'}`} />
+                     <span className={`text-[10px] font-mono animate-pulse ${isHackMode ? 'text-neon-red' : 'text-neon-cyan'}`}>
+                        DETECTED {confidence}%
+                     </span>
+                  </div>
+                )}
                 <select 
                   value={language}
                   onChange={(e) => setLanguage(e.target.value as SupportedLanguage)}

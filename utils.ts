@@ -1,3 +1,5 @@
+import { SupportedLanguage } from './types';
+
 // A simple line-by-line diff utility
 export interface DiffLine {
   type: 'same' | 'added' | 'removed';
@@ -73,4 +75,84 @@ export const generateDiff = (original: string, modified: string): DiffLine[] => 
   }
 
   return diff;
+};
+
+export const detectLanguage = (code: string): { language: SupportedLanguage; confidence: number } => {
+  if (!code || code.trim().length < 10) return { language: SupportedLanguage.JAVASCRIPT, confidence: 0 };
+
+  const patterns: Record<SupportedLanguage, RegExp[]> = {
+    [SupportedLanguage.PYTHON]: [
+      /def\s+/, /import\s+/, /print\(/, /if\s+.*:/, /elif\s+/, /else:/, 
+      /self\./, /class\s+.*:/, /from\s+.*import/, /__init__/, /pass/
+    ],
+    [SupportedLanguage.JAVASCRIPT]: [
+      /const\s+/, /let\s+/, /var\s+/, /function\s+/, /console\.log/, /=>/, 
+      /import\s+.*from/, /export\s+/, /document\./, /window\./, /===/, /!==/
+    ],
+    [SupportedLanguage.TYPESCRIPT]: [
+      /interface\s+/, /type\s+/, /:\s*string/, /:\s*number/, /:\s*boolean/, 
+      /:\s*any/, /:\s*void/, /public\s+/, /private\s+/, /readonly\s+/, /<.*>/, /as\s+/
+    ],
+    [SupportedLanguage.JAVA]: [
+      /public\s+class/, /public\s+static\s+void\s+main/, /System\.out\.println/, 
+      /import\s+java\./, /@Override/, /private\s+/, /protected\s+/, /new\s+ArrayList/, /String\s+args\[\]/
+    ],
+    [SupportedLanguage.CPP]: [
+      /#include\s+<.*>/, /std::/, /cout\s+<</, /cin\s+>>/, /using\s+namespace/, 
+      /int\s+main\s*\(/, /#define/, /nullptr/, /::/
+    ],
+    [SupportedLanguage.CSHARP]: [
+      /using\s+System/, /namespace\s+/, /Console\.WriteLine/, /public\s+class/, 
+      /\[.*\]/, /async\s+Task/, /var\s+.*=/, /List<.*>/
+    ],
+    [SupportedLanguage.GO]: [
+      /package\s+main/, /import\s+\(/, /func\s+/, /fmt\.P/, /:=\s*/, 
+      /go\s+func/, /struct\s+{/, /map\[.*\]/
+    ],
+    [SupportedLanguage.PHP]: [
+      /<\?php/, /\$\w+/, /echo\s+/, /public\s+function/, /->/, 
+      /array\(/, /namespace\s+/, /use\s+/, /require_once/
+    ],
+    [SupportedLanguage.SQL]: [
+      /SELECT\s+/i, /FROM\s+/i, /WHERE\s+/i, /INSERT\s+INTO/i, /UPDATE\s+/i, 
+      /DELETE\s+FROM/i, /CREATE\s+TABLE/i, /PRIMARY\s+KEY/i, /JOIN\s+/i, /VALUES/i
+    ],
+  };
+
+  const scores: Partial<Record<SupportedLanguage, number>> = {};
+  
+  // Initialize scores
+  Object.values(SupportedLanguage).forEach(l => scores[l] = 0);
+
+  let maxScore = 0;
+  let detected = SupportedLanguage.JAVASCRIPT;
+
+  Object.entries(patterns).forEach(([lang, regexes]) => {
+    regexes.forEach(regex => {
+      if (regex.test(code)) {
+        scores[lang as SupportedLanguage] = (scores[lang as SupportedLanguage] || 0) + 1;
+      }
+    });
+  });
+
+  // Boost TS if JS score is high (TS is superset)
+  if ((scores[SupportedLanguage.TYPESCRIPT] || 0) > 0) {
+      scores[SupportedLanguage.TYPESCRIPT] = (scores[SupportedLanguage.TYPESCRIPT] || 0) + ((scores[SupportedLanguage.JAVASCRIPT] || 0) * 0.5);
+  }
+
+  // Determine best match
+  let totalScore = 0;
+  Object.entries(scores).forEach(([lang, score]) => {
+      totalScore += score;
+      if (score > maxScore) {
+          maxScore = score;
+          detected = lang as SupportedLanguage;
+      }
+  });
+
+  // Calculate confidence percentage based on signal strength relative to total signals
+  // or raw signal count if low total
+  const confidence = totalScore === 0 ? 0 : Math.round((maxScore / totalScore) * 100);
+
+  return { language: detected, confidence: maxScore > 0 ? confidence : 0 };
 };
